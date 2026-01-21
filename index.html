@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SENSE-X | Pro Toolkit</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg: #000000;
+            --surface: #111111;
+            --text: #ffffff;
+            --subtext: #888888;
+            --accent: #ffffff;
+        }
+
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica;
+            overflow: hidden; height: 100vh; display: flex; flex-direction: column;
+        }
+
+        /* HEADER */
+        header {
+            padding: 20px; border-bottom: 1px solid #222;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        header h1 { font-size: 1.2rem; font-weight: 900; letter-spacing: 4px; margin: 0; }
+
+        /* MAIN DISPLAY */
+        .display-container {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 20px; text-align: center;
+        }
+        .main-value { font-size: 5rem; font-weight: 200; line-height: 1; margin: 10px 0; font-variant-numeric: tabular-nums; }
+        .label { color: var(--subtext); text-transform: uppercase; letter-spacing: 2px; font-size: 0.7rem; }
+
+        /* AXIS GRID */
+        .axis-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            width: 100%; max-width: 400px; gap: 10px; margin-top: 30px;
+        }
+        .axis-card {
+            background: var(--surface); padding: 15px; border-radius: 12px;
+            border: 1px solid #222; transition: all 0.2s ease;
+        }
+        .axis-card:active { transform: scale(0.95); background: #222; }
+        .axis-val { font-size: 1.2rem; font-weight: bold; margin-bottom: 5px; }
+        .axis-label { color: var(--subtext); font-size: 0.6rem; text-transform: uppercase; }
+
+        /* NAVIGATION DRAWER */
+        .nav-bar {
+            background: #0a0a0a; border-top: 1px solid #222;
+            display: grid; grid-template-columns: repeat(4, 1fr); padding: 15px 10px 30px;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center;
+            color: var(--subtext); transition: 0.3s; cursor: pointer;
+        }
+        .nav-item.active { color: var(--text); }
+        .nav-item i { margin-bottom: 5px; }
+        .nav-item span { font-size: 0.6rem; text-transform: uppercase; font-weight: bold; }
+
+        /* CALIBRATION OVERLAY */
+        #overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; z-index: 100; padding: 40px;
+        }
+        .btn-start {
+            background: white; color: black; border: none; padding: 15px 40px;
+            border-radius: 50px; font-weight: bold; letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <i data-lucide="shield-alert" style="width: 48px; height: 48px; margin-bottom: 20px;"></i>
+        <h2 style="text-align: center;">SENSOR ACCESS REQUIRED</h2>
+        <p style="color: #888; text-align: center; font-size: 0.9rem; margin-bottom: 30px;">
+            This tool requires Magnetometer and Motion sensor access to function.
+        </p>
+        <button class="btn-start" onclick="init()">INITIALIZE</button>
+    </div>
+
+    <header>
+        <h1 id="mode-title">MAG-SENSOR</h1>
+        <i data-lucide="info" style="width: 20px; height: 20px; color: #444;"></i>
+    </header>
+
+    <div class="display-container">
+        <div class="label" id="main-label">TOTAL FIELD INTENSITY</div>
+        <div class="main-value" id="main-val">0.0</div>
+        <div class="unit" style="color: #444;">MICROTESLA (µT)</div>
+
+        <div class="axis-grid">
+            <div class="axis-card">
+                <div class="axis-val" id="val-x">0</div>
+                <div class="axis-label">X-AXIS</div>
+            </div>
+            <div class="axis-card">
+                <div class="axis-val" id="val-y">0</div>
+                <div class="axis-label">Y-AXIS</div>
+            </div>
+            <div class="axis-card">
+                <div class="axis-val" id="val-z">0</div>
+                <div class="axis-label">Z-AXIS</div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="nav-bar">
+        <div class="nav-item active" onclick="setMode('mag')">
+            <i data-lucide="magnet"></i><span>Magnetic</span>
+        </div>
+        <div class="nav-item" onclick="setMode('emf')">
+            <i data-lucide="activity"></i><span>EMF</span>
+        </div>
+        <div class="nav-item" onclick="setMode('compass')">
+            <i data-lucide="compass"></i><span>Compass</span>
+        </div>
+        <div class="nav-item" onclick="setMode('test')">
+            <i data-lucide="cpu"></i><span>Test</span>
+        </div>
+    </nav>
+
+    <script>
+        let currentMode = 'mag';
+        let sensor = null;
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        async function init() {
+            document.getElementById('overlay').style.display = 'none';
+            if (window.Magnetometer) {
+                try {
+                    sensor = new Magnetometer({ frequency: 60 });
+                    sensor.addEventListener('reading', () => updateDisplay());
+                    sensor.start();
+                } catch (e) {
+                    alert("Sensor blocked. Check Chrome flags! ✌️😭");
+                }
+            } else {
+                alert("Hardware not supported on this browser.");
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            document.getElementById('mode-title').innerText = mode.toUpperCase() + "-SENSOR";
+            
+            if(mode === 'emf') document.getElementById('main-label').innerText = "ELECTROMAGNETIC FLUX";
+            if(mode === 'mag') document.getElementById('main-label').innerText = "TOTAL FIELD INTENSITY";
+        }
+
+        function updateDisplay() {
+            if (!sensor) return;
+
+            const { x, y, z } = sensor;
+            const magnitude = Math.sqrt(x**2 + y**2 + z**2).toFixed(1);
+
+            document.getElementById('main-val').innerText = magnitude;
+            document.getElementById('val-x').innerText = x.toFixed(0);
+            document.getElementById('val-y').innerText = y.toFixed(0);
+            document.getElementById('val-z').innerText = z.toFixed(0);
+
+            // Haptic feedback for high readings
+            if (magnitude > 150 && window.navigator.vibrate) {
+                window.navigator.vibrate(20);
+            }
+        }
+    </script>
+</body>
+</html>
